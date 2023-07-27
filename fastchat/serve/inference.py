@@ -301,6 +301,19 @@ def chat_loop(
         revision,
         debug,
     )
+
+    #################### code changes ####################
+    import intel_extension_for_pytorch as ipex
+    import os
+    if "ATEN_CPU_CAPABILITY" in os.environ:
+        if os.environ["ATEN_CPU_CAPABILITY"].lower() in ["amx", "avx512_bf16"]:
+            model = ipex.optimize(model, dtype=torch.bfloat16)
+        elif os.environ["ATEN_CPU_CAPABILITY"].lower() in ["avx512_vnni", "avx2_vnni"]:
+            model = ipex.optimize(model, dtype=torch.int8)
+        else:
+            model = ipex.optimize(model)
+    ######################################################
+
     generate_stream_func = get_generate_stream_function(model, model_path)
 
     model_type = str(type(model)).lower()
