@@ -14,6 +14,8 @@ import time
 from typing import List, Optional
 import uuid
 
+from prometheus_client import start_http_server, Gauge
+
 from fastapi import FastAPI, Request, BackgroundTasks
 from fastapi.responses import StreamingResponse, JSONResponse
 import requests
@@ -54,6 +56,7 @@ logger = build_logger("model_worker", f"model_worker_{worker_id}.log")
 
 app = FastAPI()
 
+TPS_GAUGE = Gauge('model_inference_tokens_per_second', 'Tokens processed per second by the model during inference')
 
 def heart_beat_worker(obj):
     while True:
@@ -234,6 +237,9 @@ class ModelWorker(BaseModelWorker):
     def generate_stream_gate(self, params):
         self.call_ct += 1
 
+        # Start the timer to measure inference time
+        start_time = time.time()
+
         try:
             for output in self.generate_stream_func(
                 self.model,
@@ -243,6 +249,20 @@ class ModelWorker(BaseModelWorker):
                 self.context_len,
                 self.stream_interval,
             ):
+
+                # Tokenize the output text to count the number of tokens
+                output_tokens = self.tokenizer.tokenize(output["text"])
+                num_output_tokens = len(output_tokens)
+
+                # Calculate the elapsed time for inference
+                elapsed_time = time.time() - start_time
+
+                # Calculate tokens per second
+                tps = num_output_tokens / elapsed_time
+
+                # Add the token count and TPS to the output
+                TPS_GAUGE.set(tps)
+
                 ret = {
                     "text": output["text"],
                     "error_code": 0,
@@ -519,4 +539,6 @@ def create_model_worker():
 
 if __name__ == "__main__":
     args, worker = create_model_worker()
+    start_http_server(8000)
     uvicorn.run(app, host=args.host, port=args.port, log_level="info")
+
