@@ -405,6 +405,7 @@ class ModelWorker(BaseModelWorker):
 
 def release_worker_semaphore():
     worker.semaphore.release()
+    TPS_GAUGE.set(0)
 
 
 def acquire_worker_semaphore():
