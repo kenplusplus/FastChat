@@ -262,6 +262,7 @@ class ModelWorker(BaseModelWorker):
 
                 # Add the token count and TPS to the output
                 TPS_GAUGE.set(tps)
+                logger.info("Token Per Second: %f", tps)
 
                 ret = {
                     "text": output["text"],
